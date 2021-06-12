@@ -1,22 +1,10 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import datetime
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
-from keras.models import Sequential
-from keras.layers import LSTM
-from keras.layers import Dense
-from keras.layers import RepeatVector
-from keras.layers import TimeDistributed
-from keras.layers import Dropout
-import sys
 import tqdm
-import os
-import itertools
 
-from sklearn.metrics import classification_report
 from sklearn.ensemble import RandomForestClassifier
 
 
