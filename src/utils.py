@@ -98,7 +98,7 @@ def bootstrapping(df_temp, n_steps_in = 20, n_steps_out = 3):
 
     for i in tqdm.tqdm(range(int(X.shape[1] / n_features))):
         df_samp = X_pos.iloc[:, n_features * i:n_features * (i + 1)].sample()
-        for j in (range(2500)):
+        for _ in (range(2500)):
             df_samp = df_samp.append(X_pos.iloc[:, n_features * i:n_features * (i + 1)].sample())
         df_samp = df_samp.reset_index(drop=True)
         if i == 0:
