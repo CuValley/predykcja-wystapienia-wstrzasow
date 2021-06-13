@@ -17,23 +17,23 @@ def strength_binary(strength):
 
 
 def load_data(path_to_data, threshold):
-    print('Wczytywanie danych.')
+    print('Wczytywanie danych...')
     df = pd.read_excel(path_to_data, dtype={'UWAGI': str})
-    df.TYP = df.TYP.mask(df.TYP.isin(['O', 'T',0]), 'OTHER')
-    df = df.merge(pd.get_dummies(df.TYP),left_index=True, right_index=True)
+    df.TYP = df.TYP.mask(df.TYP.isin(['O', 'T', 0]), 'OTHER')
+    df = df.merge(pd.get_dummies(df.TYP), left_index=True, right_index=True)
     df.drop(['Y'], inplace=True, axis=1)
     df['REJON_ODDZIAL'] = df['REJON'] + df['ODDZIAL']
-    amount_big = df[df['ENG']>=threshold]['REJON_ODDZIAL'].value_counts()
-    rej_od = amount_big[amount_big>10].index
+    amount_big = df[df['ENG'] >= threshold]['REJON_ODDZIAL'].value_counts()
+    rej_od = amount_big[amount_big > 10].index
     df = df[df['REJON_ODDZIAL'].isin(rej_od)]
     df.DATA = pd.to_datetime(df.DATA)
-    for val in ['Y', 'm','d']:
+    for val in ['Y', 'm', 'd']:
         df[val] = df.DATA.apply(lambda x: int(x.strftime(f'%{val}')))
     df.DATA = df[['Y', 'm', 'd', 'GODZ', 'MIN', 'SEK']].apply(lambda x: datetime.datetime(*x), axis=1)
     df = df.set_index('DATA', drop=True)
     df['SILA'] = df['ENG'].apply(lambda x: add_strength(x, threshold=threshold))
-    print('Wczytano dane.')
-    return df[['ENG', 'SILA', 'OTHER',	'SL',	'W','REJON_ODDZIAL']]
+    print('Wczytano dane')
+    return df[['ENG', 'SILA', 'OTHER', 'SL', 'W', 'REJON_ODDZIAL']]
 
 
 # split a multivariate sequence into samples
@@ -53,8 +53,8 @@ def split_sequences(sequences, n_steps_in, n_steps_out):
     return np.array(X)[:, :, :-1], np.array(y)[:, :, -1]
 
 
-def process_data(df):
-    df_temp = df[df['REJON_ODDZIAL'] == 'RGG-7']
+def process_data(df, rej_odzzial):
+    df_temp = df[df['REJON_ODDZIAL'] == rej_odzzial]
     df_temp.sort_index(inplace=True)
     df_temp = df_temp.resample('8h').sum()
     df_temp['SILA_ILE'] = df_temp['SILA'].copy()
@@ -63,8 +63,8 @@ def process_data(df):
     return df_temp
 
 
-def bootstrapping(df_temp, n_steps_in = 20, n_steps_out = 3):
-    print('Rozpoczęto przetwarzanie danych.')
+def bootstrapping(df_temp, n_steps_in=20, n_steps_out=3):
+    print('Rozpoczęto przetwarzanie danych...')
     X, y = split_sequences(df_temp.values, n_steps_in, n_steps_out)
     n_features = X.shape[2]
     X = X.reshape((X.shape[0], X.shape[1] * X.shape[2]))
@@ -78,10 +78,6 @@ def bootstrapping(df_temp, n_steps_in = 20, n_steps_out = 3):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y_0, test_size=0.33, random_state=42, shuffle=True)
     positive_idx = y_train[y_train == 1].index
-    X_pos = X_train.loc[positive_idx, :]
-
-    positive_idx = y_train[y_train == 1].index
-
     X_pos = X_train.loc[positive_idx, :]
 
     for i in tqdm.tqdm(range(int(X.shape[1] / n_features))):
@@ -102,10 +98,8 @@ def bootstrapping(df_temp, n_steps_in = 20, n_steps_out = 3):
     return X_train, y_train, X_test, y_test
 
 
-def predict_y(threshold):
-    path_to_data = 'data/2016-2020.xlsx'
-    df = load_data(path_to_data, threshold)
-    df_temp = process_data(df)
+def predict_y(df, rej_oddzial):
+    df_temp = process_data(df, rej_odzzial=rej_oddzial)
 
     X_train, y_train, X_test, y_test = bootstrapping(df_temp)
     rf_0 = RandomForestClassifier(max_depth=5, random_state=123)
@@ -114,4 +108,48 @@ def predict_y(threshold):
     y_pred_class = rf_0.predict(X_test)
     y_pred = rf_0.predict_proba(X_test)
 
+    return y_pred_class, y_pred[:, 1], y_test
+
+
+def map_values(x):
+    d = {0: 'NIE', 1: 'TAK'}
+    return d[x]
+
+
+def get_text(threshold, recall1, recall0, accuracy):
+    text = f"""
+Wnioski z rozważanego modelu:
+
+Przyjmując, że wybuch uznajemy za duży jeżeli jego siła przekracza {threshold}, przedstawiony model
+wykazuje czułość (recall)* dla dużych wybuchów na poziomie {int(recall1 * 100)}%,
+a dla małych wybuchów na poziomie {int(recall0 * 100)}%.
+Ogólna skuteczność modelu wynosi  {int(accuracy * 100)}%.
+
+*Czułość (recall) to proporcja obserwacji skutecznie przewidzianych jako pochodząca z danej klasy do liczby 
+obserwacji pochodzących z tej  klasy.
+    """
+    return text
+
+
+def choose_object(df):
+    unique = sorted(df.REJON_ODDZIAL.unique())
+    n = len(unique)
+    d = {i + 1: unique[i] for i in range(n)}
+    print('Aby wybrać Rejon i oddział wybierz odpowiedni numer')
+    order = list()
+    for i in range(n):
+        rej, oddzial = unique[i][:2], unique[i][2:]
+        order.append((rej, oddzial, i+1))
+    rej_od_num = pd.DataFrame(order, columns = ['REJON', 'ODDZIAL', 'NUMER'])
+    print(rej_od_num)
+    flag = True
+    while flag:
+        try:
+            chosen = int(input('Numer wybranego Regionu i Oddziału: '))
+            chosen = d[chosen]
+            print(f'Wybrano region {chosen[:2]}, oddział {chosen[2:]}')
+            y_pred_class, y_pred, y_test = predict_y(df, chosen)
+            flag = False
+        except:
+            print('Błędnie wprowadzone dane. Spróbuj ponownie.')
     return y_pred_class, y_pred, y_test
