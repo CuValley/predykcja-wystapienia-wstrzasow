@@ -12,15 +12,16 @@ def main():
             threshold = input(
                 "Wskaż liczbę Joule'i powyżej ilu wstrząs zostanie uznany za mocny (domyślna wartość wynosi 10_000): ")
             threshold = 10_000 if threshold == '' else int(threshold)
-            flag = False
             print(f'Przyjęto wartość {threshold}')
+            day_time = int(input('Wprowadź liczbę odpowiadającej porze dnia na którą chcesz przewidywać wstrząsy\n0 - 00:00 - 08:00\n1 - 08:00 - 16:00\n2 - 16:00 - 00:00\n'))
+            flag = False
         except ValueError:
             print('Wprowadzona wartość jest nieprawidłowa. Spróbuj jeszcze raz.')
 
+
     path_to_data = '../data/2016-2020.xlsx'
     df = load_data(path_to_data, threshold)
-
-    y_pred_class, y_pred, y_test = choose_object(df)
+    y_pred_class, y_pred, y_test = choose_object(df, day_time=day_time)
     print(classification_report(y_test, y_pred_class))
 
     df = pd.DataFrame({'Czy pojawił się wybuch?': list(map(map_values, y_test)),

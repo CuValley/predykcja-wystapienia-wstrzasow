@@ -63,7 +63,7 @@ def process_data(df, rej_odzzial):
     return df_temp
 
 
-def bootstrapping(df_temp, n_steps_in=20, n_steps_out=3):
+def bootstrapping(df_temp,i, n_steps_in=20, n_steps_out=3):
     print('Rozpoczęto przetwarzanie danych...')
     X, y = split_sequences(df_temp.values, n_steps_in, n_steps_out)
     n_features = X.shape[2]
@@ -74,7 +74,7 @@ def bootstrapping(df_temp, n_steps_in=20, n_steps_out=3):
     X = df_for_rf.iloc[:, :-n_steps_out]
     y = df_for_rf.iloc[:, -n_steps_out:]
 
-    y_0 = y.iloc[:, 1]
+    y_0 = y.iloc[:, i]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y_0, test_size=0.33, random_state=42, shuffle=True)
     positive_idx = y_train[y_train == 1].index
@@ -98,10 +98,10 @@ def bootstrapping(df_temp, n_steps_in=20, n_steps_out=3):
     return X_train, y_train, X_test, y_test
 
 
-def predict_y(df, rej_oddzial):
+def predict_y(df, rej_oddzial, i):
     df_temp = process_data(df, rej_odzzial=rej_oddzial)
 
-    X_train, y_train, X_test, y_test = bootstrapping(df_temp)
+    X_train, y_train, X_test, y_test = bootstrapping(df_temp, i)
     rf_0 = RandomForestClassifier(max_depth=5, random_state=123)
     rf_0.fit(X_train, y_train)
 
@@ -131,7 +131,7 @@ obserwacji pochodzących z tej  klasy.
     return text
 
 
-def choose_object(df):
+def choose_object(df, day_time):
     unique = sorted(df.REJON_ODDZIAL.unique())
     n = len(unique)
     d = {i + 1: unique[i] for i in range(n)}
@@ -148,7 +148,7 @@ def choose_object(df):
             chosen = int(input('Numer wybranego Regionu i Oddziału: '))
             chosen = d[chosen]
             print(f'Wybrano region {chosen[:2]}, oddział {chosen[2:]}')
-            y_pred_class, y_pred, y_test = predict_y(df, chosen)
+            y_pred_class, y_pred, y_test = predict_y(df, chosen, day_time)
             flag = False
         except:
             print('Błędnie wprowadzone dane. Spróbuj ponownie.')
